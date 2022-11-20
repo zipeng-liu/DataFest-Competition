@@ -1,0 +1,353 @@
+---
+title: "DataFest 2021 - Caffeinated Analysts"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library("dplyr")
+library("tidyverse")
+```
+
+```{r}
+#read csv file
+us19 <- read.csv("nmurx_us_19Q1.csv")
+
+#replace NA for non medical use of opioids 
+us19 <- us19 %>% replace_na(list(BHYD_NMUYR = 0, BHYD_NMU = 0, BUP_NMUYR = 0, BUP_NMU = 0,
+                             COD_NMUYR = 0, COD_NMU = 0, DIHY_NMUYR = 0, DIHY_NMU = 0,
+                             FENT_NMUYR = 0, FENT_NMU = 0, HYD_NMUYR = 0, HYD_NMU = 0,
+                             HYDM_NMUYR = 0, HYDM_NMU = 0, METH_NMUYR = 0, METH_NMU = 0,
+                             MORPH_NMUYR = 0, MORPH_NMU = 0, OXY_NMUYR = 0, OXY_NMU = 0,
+                             OXYM_NMUYR = 0, OXYM_NMU = 0, SUF_NMUYR = 0, SUF_NMU = 0,
+                             TAP_NMUYR = 0, TAP_NMU = 0, TRAM_NMUYR = 0, TRAM_NMU = 0)) %>% 
+  mutate(opioid_NMU = BHYD_NMUYR + BHYD_NMU + BUP_NMUYR + BUP_NMU + COD_NMUYR + COD_NMU + 
+           DIHY_NMUYR + DIHY_NMU + FENT_NMUYR + FENT_NMU + HYD_NMUYR + HYD_NMU + HYDM_NMUYR + HYDM_NMU + 
+           METH_NMUYR + METH_NMUYR + MORPH_NMUYR + MORPH_NMU + OXY_NMUYR + OXY_NMU +
+           OXYM_NMUYR + OXYM_NMUYR + OXYM_NMU + SUF_NMUYR + SUF_NMU + TAP_NMUYR + TAP_NMU + TRAM_NMUYR + TRAM_NMU)
+
+# 1 if participant have had any NMU of opioids in the past
+us19$opioid_binary <- rep(0, nrow(us19))
+
+for (i in 1:nrow(us19)) {
+  if (us19$opioid_NMU[i] > 0) {
+    us19$opioid_binary[i] <- 1 
+  }
+}
+
+#data cleaning
+#D22. simplify mental illness as either yes or no response
+for (i in 1:nrow(us19)) {
+  if (us19$MENT_NONE[i] == 0) {
+    us19$MENT_NONE[i] <- "Yes"
+  } else {
+    us19$MENT_NONE[i] <- "No"
+  }
+}
+
+
+# DEMOGRAPHIC
+# data cleaning for age
+for (i in 1:nrow(us19)) {
+  if (us19$DEM_AGE10[i] == 1) {
+    us19$DEM_AGE10[i] <- "18-24"
+  } else if (us19$DEM_AGE10[i] == 2) {
+    us19$DEM_AGE10[i] <- "25-34"
+  } else if (us19$DEM_AGE10[i] == 3) {
+    us19$DEM_AGE10[i] <- "35-44"
+  } else if (us19$DEM_AGE10[i] == 4) {
+    us19$DEM_AGE10[i] <- "45-54"
+  } else if (us19$DEM_AGE10[i] == 5) {
+    us19$DEM_AGE10[i] <- "55-64"
+  } else {
+    us19$DEM_AGE10[i] <- "65+"
+  }
+}
+
+us19$DEM_AGE10 <- relevel(factor(us19$DEM_AGE10), ref = 2)
+
+#race
+us19 <- us19 %>% mutate(race = NULL)
+
+for (i in 1:nrow(us19)) {
+  if (us19$DEM_HISPANIC[i] == 1) {
+    us19$race[i] <- "Hispanic"
+  } else if (us19$DEM_RACE_AIAN[i] == 1) {
+    us19$race[i] <- "American Indian/Alaska Native"
+  } else if (us19$DEM_RACE_ASIAN[i] == 1) {
+    us19$race[i] <- "Asian"
+  } else if (us19$DEM_RACE_BLACK[i] == 1) {
+    us19$race[i] <- "Black/African American"
+  } else if (us19$DEM_RACE_NHPI[i] == 1) {
+    us19$race[i] <- "Native Hawaiian/Other Pacific Islander "
+  } else if (us19$DEM_RACE_WHITE[i] == 1) {
+    us19$race[i] <- "White"
+  } else {
+    us19$race[i] <- "Other"
+  }
+}
+
+us19$race <- relevel(factor(us19$race), ref = 7)
+
+# data cleaning for gender
+for (i in 1:nrow(us19)) {
+  if (us19$DEM_GENDER[i] == 1) {
+    us19$DEM_GENDER[i] <- "Male"
+  } else {
+    us19$DEM_GENDER[i] <- "Female"
+  }
+}
+
+
+# data cleaning for region 
+for (i in 1:nrow(us19)) {
+  if (us19$DEM_REGION[i] == 1) {
+    us19$DEM_REGION[i] <- "Northeast"
+    } else if (us19$DEM_REGION[i] == 2) {
+      us19$DEM_REGION[i] <- "Midwest"
+      } else if (us19$DEM_REGION[i] == 3) {
+        us19$DEM_REGION[i] <- "South"
+      } else {
+        us19$DEM_REGION[i] <- "West"
+      }
+}
+
+# data cleaning for general health
+for (i in 1:nrow(us19)) {
+  if (us19$DEM_GENHEALTH[i] == 1) {
+    us19$DEM_GENHEALTH[i] <- "Poor"
+    } else if (us19$DEM_GENHEALTH[i] == 2) {
+      us19$DEM_GENHEALTH[i] <- "Fair"
+      } else if (us19$DEM_GENHEALTH[i] == 3) {
+        us19$DEM_GENHEALTH[i] <- "Good"
+      } else if (us19$DEM_GENHEALTH[i] == 4) {
+      us19$DEM_GENHEALTH[i] <- "Very good"
+      } else {
+        us19$DEM_GENHEALTH[i] <- "Excellent"
+      }
+}
+
+us19$DEM_GENHEALTH <- relevel(factor(us19$DEM_GENHEALTH), ref = 2)
+
+# data cleaning for limited activities due to medical condition 
+for (i in 1:nrow(us19)) {
+  if (us19$DEM_LIMIT[i] == 1) {
+    us19$DEM_LIMIT[i] <- "Yes"
+    } else {
+      us19$DEM_LIMIT[i] <- "No"
+    }
+}
+
+# data cleaning for prescription for pain reliever for chronic pain
+us19 <- us19 %>% replace_na(list(PAIN_CHRONICYR_RX = 0))
+
+for (i in 1:nrow(us19)) {
+  if (us19$PAIN_CHRONICYR_RX[i] == 1) {
+    us19$PAIN_CHRONICYR_RX[i] <- "Yes"
+  } else {
+    us19$PAIN_CHRONICYR_RX[i] <- "No"
+  }
+}
+
+# data cleaning for drug counseling 
+for (i in 1:nrow(us19)) {
+  if (us19$TRT_USEYR[i] == 1) {
+    us19$TRT_USEYR[i] <- "Yes"
+  } else {
+    us19$TRT_USEYR[i] <- "No"
+  }
+}
+
+# checking for the effect of environment 
+# data cleaning for marital status 
+for (i in 1:nrow(us19)) {
+  if (us19$DEM_MARITAL[i] == 1) {
+    us19$DEM_MARITAL[i] <- "Now Married"
+  } else if (us19$DEM_MARITAL[i] == 2) {
+    us19$DEM_MARITAL[i] <- "Widowed"
+  } else if (us19$DEM_MARITAL[i] == 3) {
+    us19$DEM_MARITAL[i] <- "Divorced"
+  } else if (us19$DEM_MARITAL[i] == 4) {
+    us19$DEM_MARITAL[i] <- "Separated"
+  } else {
+    us19$DEM_MARITAL[i] <- "Never married"
+  }
+}
+
+us19$DEM_MARITAL <- relevel(factor(us19$DEM_MARITAL), ref = 2)
+
+# data cleaning for income
+for (i in 1:nrow(us19)) {
+  if (us19$DEM_INCOME[i] == 1) {
+    us19$DEM_INCOME[i] <- "<$25,000"
+  } else if (us19$DEM_INCOME[i] == 2) {
+    us19$DEM_INCOME[i] <- "$25,000 ~ $49,999"
+  } else if (us19$DEM_INCOME[i] == 3) {
+    us19$DEM_INCOME[i] <- "$50,000 ~ $74,999"
+  } else if (us19$DEM_INCOME[i] == 4) {
+    us19$DEM_INCOME[i] <- "$75,000 ~ $99,999"
+  } else {
+    us19$DEM_INCOME[i] <- "$100,000 +"
+  }
+}
+
+us19$DEM_INCOME <- relevel(factor(us19$DEM_INCOME), ref = 3)
+
+# the participant's attitude towards drugs
+# I have not used any other prescription drugs in a way not directed by my healthcare provider
+for (i in 1:nrow(us19)) {
+  if (us19$OTH_RX_DRUG_USE[i] == 1) {
+    us19$OTH_RX_DRUG_USE[i] <- "Yes"
+  } else {
+    us19$OTH_RX_DRUG_USE[i] <- "No"
+  }
+}
+
+# data cleaning for tobacco use
+us19 <- us19 %>% filter(TOB_LIFE != 4)
+
+for (i in 1:nrow(us19)) {
+  if (us19$TOB_LIFE[i] == 1) {
+    us19$TOB_LIFE[i] <- "Every day"
+    } else if (us19$TOB_LIFE[i] == 2) {
+      us19$TOB_LIFE[i] <- "Some days"
+      } else if (us19$TOB_LIFE[i] == 3) {
+        us19$TOB_LIFE[i] <- "Not at all"
+      }
+}
+
+us19$TOB_LIFE <- relevel(factor(us19$TOB_LIFE), ref = 2)
+
+#D9 have you ever used other drugs?
+us19 <- us19 %>% mutate(illegalUse = COKE_USE + CRACK_USE + MDMA_USE +
+                        GHB_USE + ALKY_USE + KRAT_USE + SPEED_USE + METHAM_USE +
+                        NPFENT_USE + HEROIN_USE + KET_USE + MEPH_USE + LSD_USE + 
+                        MUSH_USE + PCP_USE + MESC_USE + SPICE_USE + SAL_USE + 
+                        STER_USE)
+
+for (i in 1:nrow(us19)) {
+  if (us19$illegalUse[i] > 0) {
+    us19$illegalUse[i] <- "Yes"
+  } else {
+    us19$illegalUse[i] <- "No"
+  }
+}
+
+```
+
+\newpage 
+
+```{r}
+#modeling 
+#logistic model
+us19CA <- us19 %>% filter(DEM_STATE == "CA")
+
+model <- glm(opioid_binary ~ DEM_AGE10 + DEM_INCOME + DEM_GENDER + DEM_GENHEALTH +
+              DEM_MARITAL + DEM_EDU + DEM_HOME + race + DEM_LIMIT + 
+              PAIN_CHRONICYR_RX + MENT_NONE + TRT_USEYR + 
+              TOB_LIFE + ALC_USE + OTH_RX_DRUG_USE + DAST_CAT + illegalUse,
+            data = us19CA, family = "binomial")
+logOddsMat <- cbind(est=model$coef, confint(model, level=0.95))
+oddsMat <- exp(logOddsMat)
+oddsMat[1,] <- oddsMat[1,] / (1+oddsMat[1,])
+rownames(oddsMat) <- c("Baseline",
+                        "Age 18 - 24",
+                        "Age 34 - 44",
+                        "Age 45 - 54",
+                        "Age 55 - 64",
+                        "Age 65 +",
+                        "income of more than $100,000",
+                        "Income between $25,000 ~ $49,999",
+                        "Income between $75,000 ~ $99,999",
+                        "Income less than $25,000",
+                        "Male",
+                        "Excellent health",
+                        "Good health",
+                        "Poor health",
+                        "Very good health",
+                        "Divorced",
+                        "Now Married",
+                        "Separated",
+                        "Widowed",
+                        "Education level",
+                        "Currently living with other individuals",
+                        "American Indian/Alaska Native",
+                        "Asian",
+                        "Black/African American",
+                        "Hispanic",
+                        "Native Hawaiian/Other Pacific Islander",
+                        "Other race",
+                        "Currently limited in activity due to medical reasons",
+                        "Received a prescription for a pain reliever in the last 12 months",
+                        "Have been diagnoised with mental health disorder before",
+                        "Have received treatment for use of any drugs (not including cigarettes)",
+                        "Smoke cigarettes everyday",
+                        "Smoke cigarettes on some days",
+                        "Alcohol consumption",
+                        "Have used other prescription drugs for non medical purposes",
+                        "Involvement with drugs",
+                        "Have used illegal drugs before")
+knitr::kable(oddsMat, 
+             caption = "Estimates of baseline odds and odds ratios, with 95% confidence intervals",
+             digits=3)
+
+#concise model 
+modelC <- glm(opioid_binary ~ DEM_AGE10 + DEM_INCOME + DEM_GENDER +
+              DEM_LIMIT + TRT_USEYR + TOB_LIFE + 
+              ALC_USE + OTH_RX_DRUG_USE +  
+              DAST_CAT + illegalUse + MENT_NONE,
+              data = us19CA, family = "binomial")
+logOddsMat2 <- cbind(est=modelC$coef, confint(modelC, level=0.95))
+oddsMat2 <- exp(logOddsMat2)
+oddsMat2[1,] <- oddsMat2[1,] / (1+oddsMat2[1,])
+
+
+
+#Testing for better model
+step(model)
+
+#lrt for model comparison
+lmtest::lrtest(model, modelC)
+```
+
+```{r}
+
+#creates a plot of opioid counts based on age range and gender
+us19$DEM_AGE10 <- relevel(us19$DEM_AGE10, ref = 2)
+
+ggplot(us19, aes(x = DEM_AGE10, y = opioid_NMU)) + geom_bar(aes(fill = DEM_GENDER),stat = "identity") + facet_wrap(~us19$DEM_GENDER) + 
+  labs(title = "Count of non medical use of Opioids for Males vs Females based on Age",
+  x = "Age Range", y = "Non medical use of Opioids")  + guides(fill=FALSE)
+
+#plot of income vs opioid count
+us19$DEM_INCOME <- factor(us19$DEM_INCOME, 
+                    levels = c("<$25,000", "$25,000 ~ $49,999", "$50,000 ~ $74,999", 
+                    "$75,000 ~ $99,999", "$100,000 +"))
+
+ggplot(us19, aes(x = DEM_INCOME, y = opioid_NMU)) + geom_bar(stat = "identity") + 
+  geom_col(fill = "#56B4E9") + labs(title = "Count of non medical use of Opioids by Income",
+                                    x = "Income", y ="Non medical use of Opioids")
+
+#plot of states vs opioid count
+ggplot(us19, aes(x = DEM_STATE, y = opioid_NMU)) + geom_bar(aes(fill = DEM_REGION), stat = "identity") + 
+  labs(title = "Count of non medical use of Opioids by State", 
+       x = "State", y = "Non medical use of Opioids", 
+       fill = "Region") + theme(axis.text.x = element_text(size = 8))
+
+#plot of race vs opioid count
+ggplot(us19, aes(x = race, y = opioid_NMU))  + geom_bar(stat = "identity") + 
+  labs(title = "Count of non medical use of Opioids by Race", x = "Race", 
+       y = "Non medical use of Opioids") + geom_col(fill = "#CC79A7") 
+
+#plot of marital status vs opioid count
+ggplot(us19, aes(x = DEM_MARITAL, y = opioid_NMU)) + geom_bar(stat = "identity") + 
+  labs(title = "Count of non medical use of Opioids by Marital Status",
+       x = "Marital Status", y = "Non medical use of Opioids") + 
+       geom_col(fill = "#E69F00")
+
+
+```
+
